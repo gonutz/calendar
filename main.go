@@ -195,6 +195,11 @@ func main() {
 	moveBackward := func() {
 		showView(settings.View, -viewDelta(-1))
 	}
+	showToday := func() {
+		// do this twice because the first will reset the focus
+		showView(settings.View, 0)
+		showView(settings.View, time.Now().Sub(focus))
+	}
 
 	window.SetOnShow(func() {
 		showView(settings.View, 0)
@@ -237,6 +242,11 @@ func main() {
 
 	menu := wui.NewMainMenu()
 	window.SetMenu(menu)
+
+	todayMenu := wui.NewMenuString("&Today [F12]")
+	todayMenu.SetOnClick(showToday)
+	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_F12}, showToday)
+	menu.Add(todayMenu)
 
 	daysMenu := wui.NewMenuString("&Days")
 	daysMenu.SetOnClick(func() {
