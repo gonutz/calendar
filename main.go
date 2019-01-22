@@ -214,10 +214,10 @@ func main() {
 		previousView()
 	})
 	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_F1}, func() {
-		moveForward()
+		moveBackward()
 	})
 	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_F2}, func() {
-		moveBackward()
+		moveForward()
 	})
 
 	menu := wui.NewMainMenu()
