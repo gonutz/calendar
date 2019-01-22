@@ -219,6 +219,22 @@ func main() {
 	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_F2}, func() {
 		moveForward()
 	})
+	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_LEFT, Mod: wui.ModAlt}, func() {
+		showView(settings.View, -24*time.Hour)
+	})
+	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_RIGHT, Mod: wui.ModAlt}, func() {
+		showView(settings.View, 24*time.Hour)
+	})
+	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_UP, Mod: wui.ModAlt}, func() {
+		if settings.View == monthView {
+			showView(settings.View, -7*24*time.Hour)
+		}
+	})
+	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_DOWN, Mod: wui.ModAlt}, func() {
+		if settings.View == monthView {
+			showView(settings.View, 7*24*time.Hour)
+		}
+	})
 
 	menu := wui.NewMainMenu()
 	window.SetMenu(menu)
