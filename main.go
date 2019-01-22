@@ -40,12 +40,9 @@ func main() {
 	for i := range editors {
 		editors[i] = newEditor(window, font, bold)
 	}
-	hideEditors := func() {
-		for _, e := range editors {
-			e.setVisible(false)
-		}
+	for _, e := range editors {
+		e.setVisible(false)
 	}
-	hideEditors()
 
 	const (
 		dayView = iota
@@ -100,7 +97,9 @@ func main() {
 		return t
 	}
 	showDayView := func() {
-		hideEditors()
+		for _, e := range editors[1:] {
+			e.setVisible(false)
+		}
 		e := editors[0]
 		e.setVisible(true)
 		e.setBounds(0, 0, window.ClientWidth(), window.ClientHeight())
@@ -109,10 +108,11 @@ func main() {
 		settings.View = dayView
 	}
 	showWeekView := func() {
-		hideEditors()
+		for _, e := range editors[7:] {
+			e.setVisible(false)
+		}
 		w := window.ClientWidth() / 7
 		h := window.ClientHeight()
-		hideEditors()
 		offset := viewStart(weekView, focus)
 		for i := 0; i < 7; i++ {
 			e := editors[i]
@@ -128,7 +128,6 @@ func main() {
 		settings.View = weekView
 	}
 	showMonthView := func() {
-		hideEditors()
 		w := window.ClientWidth() / 7
 		h := window.ClientHeight() / 5
 		offset := viewStart(monthView, focus)
