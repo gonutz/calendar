@@ -354,6 +354,7 @@ func newEditor(parent *wui.Window, font, bold *wui.Font) *editor {
 	p := wui.NewPanel()
 	parent.Add(p)
 	e := wui.NewTextEdit()
+	e.SetWordWrap(true)
 	p.Add(e)
 	l := wui.NewLabel()
 	l.SetCenterAlign()
