@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gonutz/w32"
@@ -35,6 +36,27 @@ func main() {
 		window.Maximize()
 	}
 	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_ESCAPE}, window.Close)
+	// The settings store the last top-left corner of the monitor which the
+	// window was previously on. On the next program start this monitor might be
+	// unplugged. Since we do not want to show the window on a non-existing
+	// monitor (this would put the window off-screen) we check if there
+	// currently is a monitor that has the same top-left corner and put our
+	// window on it.
+	var monitors []w32.HMONITOR
+	cb := syscall.NewCallback(func(m w32.HMONITOR, hdc w32.HDC, r *w32.RECT, l w32.LPARAM) uintptr {
+		monitors = append(monitors, m)
+		return 1
+	})
+	w32.EnumDisplayMonitors(0, nil, cb, 0)
+	for _, monitor := range monitors {
+		var info w32.MONITORINFO
+		if w32.GetMonitorInfo(monitor, &info) &&
+			int(info.RcWork.Left) == settings.MonitorX &&
+			int(info.RcWork.Top) == settings.MonitorY {
+			window.SetPos(settings.MonitorX, settings.MonitorY)
+			break
+		}
+	}
 
 	var editors [7 * 5]*editor
 	for i := range editors {
@@ -210,6 +232,14 @@ func main() {
 	window.SetOnClose(func() {
 		saveView()
 		settings.Maximized = window.Maximized()
+		monitor := window.Monitor()
+		if monitor != 0 {
+			var info w32.MONITORINFO
+			if w32.GetMonitorInfo(monitor, &info) {
+				settings.MonitorX = int(info.RcWork.Left)
+				settings.MonitorY = int(info.RcWork.Top)
+			}
+		}
 	})
 	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_TAB}, func() {
 		nextView()
@@ -293,6 +323,8 @@ type appSettings struct {
 	Maximized bool
 	View      int
 	Language  int
+	MonitorX  int
+	MonitorY  int
 }
 
 func check(err error) {
