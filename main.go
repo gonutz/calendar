@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -15,6 +16,13 @@ import (
 )
 
 func main() {
+	const (
+		dayView = iota
+		weekView
+		monthView
+		viewCount
+	)
+
 	var settings appSettings
 	settingsPath := filepath.Join(os.Getenv("APPDATA"), "calendar.set")
 	if data, err := ioutil.ReadFile(settingsPath); err == nil {
@@ -25,12 +33,19 @@ func main() {
 		check(err)
 		check(ioutil.WriteFile(settingsPath, data, 0666))
 	}()
+	if settings.View < 0 {
+		settings.View = 0
+	}
+	settings.View %= viewCount
+	if settings.Language < 0 || settings.Language >= langCount {
+		settings.Language = englishUS
+	}
 
 	font, _ := wui.NewFont(wui.FontDesc{Name: "Tahoma", Height: -13})
 	bold, _ := wui.NewFont(wui.FontDesc{Name: "Tahoma", Height: -13, Bold: true})
 	window := wui.NewWindow()
 	window.SetFont(font)
-	window.SetTitle("Calendar")
+	window.SetTitle(translations[settings.Language].windowTitle)
 	window.SetIconFromExeResource(10)
 	if settings.Maximized {
 		window.Maximize()
@@ -64,21 +79,6 @@ func main() {
 	}
 	for _, e := range editors {
 		e.setVisible(false)
-	}
-
-	const (
-		dayView = iota
-		weekView
-		monthView
-		viewCount
-	)
-
-	if settings.View < 0 {
-		settings.View = 0
-	}
-	settings.View %= viewCount
-	if settings.Language < 0 || settings.Language >= langCount {
-		settings.Language = englishUS
 	}
 
 	var cal calendar
@@ -273,24 +273,24 @@ func main() {
 	menu := wui.NewMainMenu()
 	window.SetMenu(menu)
 
-	todayMenu := wui.NewMenuString("&Today [F12]")
+	todayMenu := wui.NewMenuString(translations[settings.Language].menu.today)
 	todayMenu.SetOnClick(showToday)
 	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_F12}, showToday)
 	menu.Add(todayMenu)
 
-	daysMenu := wui.NewMenuString("&Days")
+	daysMenu := wui.NewMenuString(translations[settings.Language].menu.days)
 	daysMenu.SetOnClick(func() {
 		showView(dayView, 0)
 	})
 	menu.Add(daysMenu)
 
-	weeksMenu := wui.NewMenuString("&Weeks")
+	weeksMenu := wui.NewMenuString(translations[settings.Language].menu.weeks)
 	weeksMenu.SetOnClick(func() {
 		showView(weekView, 0)
 	})
 	menu.Add(weeksMenu)
 
-	monthsMenu := wui.NewMenuString("&Months")
+	monthsMenu := wui.NewMenuString(translations[settings.Language].menu.months)
 	monthsMenu.SetOnClick(func() {
 		showView(monthView, 0)
 	})
@@ -304,17 +304,32 @@ func main() {
 	forwardMenu.SetOnClick(moveForward)
 	menu.Add(forwardMenu)
 
-	langMenu := wui.NewMenu("&Language")
+	langMenu := wui.NewMenu(translations[settings.Language].menu.language)
+	var langMenuItems [langCount]*wui.MenuString
+	setLanguage := func(lang int) {
+		settings.Language = lang
+		for i, m := range langMenuItems {
+			m.SetChecked(i == lang)
+		}
+		t := &translations[settings.Language]
+		window.SetTitle(t.windowTitle)
+		todayMenu.SetText(t.menu.today)
+		daysMenu.SetText(t.menu.days)
+		weeksMenu.SetText(t.menu.weeks)
+		monthsMenu.SetText(t.menu.months)
+		//langMenu.SetText(t.menu.language) // TODO not possible in wui right now
+		showView(settings.View, 0) // updates all calendar texts
+	}
 	for lang := 0; lang < langCount; lang++ {
-		m := wui.NewMenuString(langNames[lang])
+		langMenuItems[lang] = wui.NewMenuString(translations[lang].name)
 		lang := lang
-		m.SetOnClick(func() {
-			settings.Language = lang
-			showView(settings.View, 0)
+		langMenuItems[lang].SetOnClick(func() {
+			setLanguage(lang)
 		})
-		langMenu.Add(m)
+		langMenu.Add(langMenuItems[lang])
 	}
 	menu.Add(langMenu)
+	setLanguage(settings.Language)
 
 	window.Show()
 }
@@ -425,12 +440,6 @@ func newEditor(parent *wui.Window, font, bold *wui.Font) *editor {
 	}
 }
 
-var shortDays = [][]string{
-	englishUS: []string{"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"},
-	englishGB: []string{"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"},
-	german:    []string{"So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"},
-}
-
 func (e *editor) setDate(t time.Time, lang int) {
 	e.date = t
 	e.caption.SetText(formatDate(t, lang))
@@ -439,6 +448,20 @@ func (e *editor) setDate(t time.Time, lang int) {
 	} else {
 		e.caption.SetFont(e.font)
 	}
+}
+
+func formatDate(t time.Time, lang int) string {
+	y, m, d := t.Date()
+	weekday := t.Weekday()
+	var week string
+	if weekday == time.Monday {
+		_, w := t.ISOWeek()
+		week = fmt.Sprintf(translations[lang].calendarWeek, w)
+	}
+	return fmt.Sprintf(
+		translations[lang].dateFormat,
+		week, translations[lang].shortDays[weekday], d, m, y,
+	)
 }
 
 func isToday(t time.Time) bool {

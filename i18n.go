@@ -1,10 +1,5 @@
 package main
 
-import (
-	"fmt"
-	"time"
-)
-
 const (
 	englishUS = iota
 	englishGB
@@ -12,33 +7,56 @@ const (
 	langCount
 )
 
-var langNames = []string{
-	englishUS: "English US",
-	englishGB: "English GB",
-	german:    "Deutsch",
+var translations [langCount]translation
+
+type translation struct {
+	name        string
+	windowTitle string
+	menu        struct {
+		today    string
+		days     string
+		weeks    string
+		months   string
+		language string
+	}
+	// calendarWeek is uesd in Sprintf with the integer week number as parameter
+	calendarWeek string
+	shortDays    [7]string
+	// dateFormat will be called with Sprintf and the parameters are:
+	// [1] <calendar week prefix>
+	// [2] <day abbreviation>
+	// [3] <day>
+	// [4] <month>
+	// [5] <year>
+	dateFormat string
 }
 
-var weekPrefix = []string{
-	englishUS: "CW %d  ",
-	englishGB: "CW %d  ",
-	german:    "KW %d  ",
-}
+func init() {
+	t := &translations[englishUS]
+	t.name = "English US"
+	t.windowTitle = "Calendar"
+	t.menu.today = "&Today [F12]"
+	t.menu.days = "&Days"
+	t.menu.weeks = "&Weeks"
+	t.menu.months = "&Months"
+	t.menu.language = "&Language"
+	t.calendarWeek = "CW %d  "
+	t.shortDays = [7]string{"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"}
+	t.dateFormat = "%[1]s%[2]s %02[4]d/%02[3]d/%04[5]d"
 
-func formatDate(t time.Time, lang int) string {
-	y, m, d := t.Date()
-	weekday := t.Weekday()
-	shortDay := shortDays[lang][weekday]
-	var week string
-	if weekday == time.Monday {
-		_, w := t.ISOWeek()
-		week = fmt.Sprintf(weekPrefix[lang], w)
-	}
-	switch lang {
-	default: // English US
-		return fmt.Sprintf("%s%s %02d/%02d/%04d", week, shortDay, m, d, y)
-	case englishGB:
-		return fmt.Sprintf("%s%s %02d/%02d/%04d", week, shortDay, d, m, y)
-	case german:
-		return fmt.Sprintf("%s%s %02d.%02d.%04d", week, shortDay, d, m, y)
-	}
+	translations[englishGB] = translations[englishUS]
+	translations[englishGB].name = "English GB"
+	translations[englishGB].dateFormat = "%s%s %02d/%02d/%04d"
+
+	t = &translations[german]
+	t.name = "Deutsch"
+	t.windowTitle = "Kalender"
+	t.menu.today = "&Heute [F12]"
+	t.menu.days = "&Tage"
+	t.menu.weeks = "&Wochen"
+	t.menu.months = "&Monate"
+	t.menu.language = "&Sprache"
+	t.calendarWeek = "KW %d  "
+	t.shortDays = [7]string{"So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"}
+	t.dateFormat = "%s%s %02d.%02d.%04d"
 }
