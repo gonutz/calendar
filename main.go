@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gonutz/w32"
-	"github.com/gonutz/wui"
+	"github.com/gonutz/w32/v2"
+	"github.com/gonutz/wui/v2"
 )
 
 func main() {
@@ -46,11 +46,12 @@ func main() {
 	window := wui.NewWindow()
 	window.SetFont(font)
 	window.SetTitle(translations[settings.Language].windowTitle)
-	window.SetIconFromExeResource(10)
+	icon, _ := wui.NewIconFromExeResource(10)
+	window.SetIcon(icon)
 	if settings.Maximized {
-		window.Maximize()
+		window.SetState(wui.WindowMaximized)
 	}
-	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_ESCAPE}, window.Close)
+	window.SetShortcut(window.Close, wui.KeyEscape)
 	// The settings store the last top-left corner of the monitor which the
 	// window was previously on. On the next program start this monitor might be
 	// unplugged. Since we do not want to show the window on a non-existing
@@ -68,7 +69,7 @@ func main() {
 		if w32.GetMonitorInfo(monitor, &info) &&
 			int(info.RcWork.Left) == settings.MonitorX &&
 			int(info.RcWork.Top) == settings.MonitorY {
-			window.SetPos(settings.MonitorX, settings.MonitorY)
+			window.SetPosition(settings.MonitorX, settings.MonitorY)
 			break
 		}
 	}
@@ -124,7 +125,7 @@ func main() {
 		}
 		e := editors[0]
 		e.setVisible(true)
-		e.setBounds(0, 0, window.ClientWidth(), window.ClientHeight())
+		e.setBounds(0, 0, window.InnerWidth(), window.InnerHeight())
 		e.setDate(focus, settings.Language)
 		e.setText(toWinLines(cal.getText(e.date)))
 		settings.View = dayView
@@ -133,15 +134,15 @@ func main() {
 		for _, e := range editors[7:] {
 			e.setVisible(false)
 		}
-		w := window.ClientWidth() / 7
-		h := window.ClientHeight()
+		w := window.InnerWidth() / 7
+		h := window.InnerHeight()
 		offset := viewStart(weekView, focus)
 		for i := 0; i < 7; i++ {
 			e := editors[i]
 			e.setVisible(true)
 			width := w
 			if i == 6 {
-				width = window.ClientWidth() - 6*w
+				width = window.InnerWidth() - 6*w
 			}
 			e.setBounds(i*w, 0, width, h)
 			e.setDate(offset.Add(time.Duration(i)*24*time.Hour), settings.Language)
@@ -150,8 +151,8 @@ func main() {
 		settings.View = weekView
 	}
 	showMonthView := func() {
-		w := window.ClientWidth() / 7
-		h := window.ClientHeight() / 5
+		w := window.InnerWidth() / 7
+		h := window.InnerHeight() / 5
 		offset := viewStart(monthView, focus)
 		for i := range editors {
 			e := editors[i]
@@ -159,10 +160,10 @@ func main() {
 			tx, ty := i%7, i/7
 			width, height := w, h
 			if tx == 6 {
-				width = window.ClientWidth() - 6*w
+				width = window.InnerWidth() - 6*w
 			}
 			if ty == 4 {
-				height = window.ClientHeight() - 4*h
+				height = window.InnerHeight() - 4*h
 			}
 			e.setBounds(tx*w, ty*h, width, height)
 			e.setDate(offset.Add(time.Duration(i)*24*time.Hour), settings.Language)
@@ -231,51 +232,51 @@ func main() {
 	})
 	window.SetOnClose(func() {
 		saveView()
-		settings.Maximized = window.Maximized()
+		settings.Maximized = window.State() == wui.WindowMaximized
 		monitor := window.Monitor()
 		if monitor != 0 {
 			var info w32.MONITORINFO
-			if w32.GetMonitorInfo(monitor, &info) {
+			if w32.GetMonitorInfo(w32.HMONITOR(monitor), &info) {
 				settings.MonitorX = int(info.RcWork.Left)
 				settings.MonitorY = int(info.RcWork.Top)
 			}
 		}
 	})
-	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_TAB}, func() {
-		nextView()
-	})
-	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_TAB, Mod: wui.ModShift}, func() {
-		previousView()
-	})
-	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_F1}, func() {
-		moveBackward()
-	})
-	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_F2}, func() {
-		moveForward()
-	})
-	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_LEFT, Mod: wui.ModAlt}, func() {
-		showView(settings.View, -24*time.Hour)
-	})
-	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_RIGHT, Mod: wui.ModAlt}, func() {
-		showView(settings.View, 24*time.Hour)
-	})
-	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_UP, Mod: wui.ModAlt}, func() {
-		if settings.View == monthView {
-			showView(settings.View, -7*24*time.Hour)
-		}
-	})
-	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_DOWN, Mod: wui.ModAlt}, func() {
-		if settings.View == monthView {
-			showView(settings.View, 7*24*time.Hour)
-		}
-	})
+	window.SetShortcut(nextView, wui.KeyTab)
+	window.SetShortcut(previousView, wui.KeyShift, wui.KeyTab)
+	window.SetShortcut(moveBackward, wui.KeyF1)
+	window.SetShortcut(moveForward, wui.KeyF2)
+	window.SetShortcut(
+		func() { showView(settings.View, -24*time.Hour) },
+		wui.KeyAlt, wui.KeyLeft,
+	)
+	window.SetShortcut(
+		func() { showView(settings.View, 24*time.Hour) },
+		wui.KeyAlt, wui.KeyRight,
+	)
+	window.SetShortcut(
+		func() {
+			if settings.View == monthView {
+				showView(settings.View, -7*24*time.Hour)
+			}
+		},
+		wui.KeyAlt, wui.KeyUp,
+	)
+	window.SetShortcut(
+		func() {
+			if settings.View == monthView {
+				showView(settings.View, 7*24*time.Hour)
+			}
+		},
+		wui.KeyAlt, wui.KeyDown,
+	)
 
 	menu := wui.NewMainMenu()
 	window.SetMenu(menu)
 
 	todayMenu := wui.NewMenuString(translations[settings.Language].menu.today)
 	todayMenu.SetOnClick(showToday)
-	window.SetShortcut(wui.ShortcutKeys{Key: w32.VK_F12}, showToday)
+	window.SetShortcut(showToday, wui.KeyF12)
 	menu.Add(todayMenu)
 
 	daysMenu := wui.NewMenuString(translations[settings.Language].menu.days)
@@ -429,7 +430,7 @@ func newEditor(parent *wui.Window, font, bold *wui.Font) *editor {
 	e.SetWordWrap(true)
 	p.Add(e)
 	l := wui.NewLabel()
-	l.SetCenterAlign()
+	l.SetAlignment(wui.AlignCenter)
 	p.Add(l)
 	return &editor{
 		panel:   p,
